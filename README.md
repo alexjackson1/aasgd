@@ -37,7 +37,7 @@ The `.apx` files were then solved using the [`ASPARTIX`](https://www.dbai.tuwien
 Each framework is stored in Python dictionary with the following keys, this is based on the `pytorch_geometric` data format.
 
 - `x`: node feature matrix with shape `(|A|, 1)` consisting of unique integer identifiers for each argument (type `torch.float32`).
-- `edge_index`: the relation `R` encoded in [COO format](https://pytorch.org/docs/stable/sparse.html#sparse-coo-docs) with shape [2, num_edges] and type `torch.long`.
+- `edge_index`: the relation `R` encoded in [COO format](https://pytorch.org/docs/stable/sparse.html#sparse-coo-docs) with shape `(2, |R|)` and type `torch.long`.
 - `extensions`: a dictionary mapping keys `σ ∈ {"CO", "GR", "PR", "ST", "SST", "STG"}` to binary tensors with shape `(|E_σ|, |A|)` and type `torch.long`.
 
 
