@@ -32,6 +32,11 @@ PARAMS=("GR" "PR" "ST" "SST" "STG" "CO")
 # Determine the index for the PARAMS array
 PARAM_INDEX=$(( ($SLURM_ARRAY_TASK_ID - 1) % 6 ))
 
+# if not 0 then exit 
+if [ $PARAM_INDEX -ne 0 ]; then
+    exit
+fi
+
 # Get the value from the PARAMS array
 PARAM=${PARAMS[$PARAM_INDEX]}
 

@@ -1,3 +1,8 @@
 env
 AFGraphLib*
 iccma
+full_dataset
+*.txt
+*.pt
+__pycache__
+*.csv
