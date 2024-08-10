@@ -5,22 +5,41 @@
 # 5. Save the data object
 
 
-from typing import Dict, List, Literal, Tuple
+from jaxtyping import Int
+from beartype import beartype
+from beartype.typing import Dict, List, Literal, Tuple
+
+import os
+
 
 import clingo
 import torch
-import os
+from torch import Tensor
 from tqdm import tqdm
-from torch_geometric.data import Data
 
-# set parallelism
 
+SEMANTICS = ["GR", "CO", "ST", "SST", "STG", "PR"]
+Semantics = Literal["GR", "CO", "ST", "SST", "STG", "PR"]
+Program = str
+
+FILTER_FILE = "lib/aspartix/filter.lp"
+SEMANTICS_FILES: Dict[Semantics, str] = {
+    "GR": "lib/aspartix/ground.dl",
+    "CO": "lib/aspartix/comp.dl",
+    "ST": "lib/aspartix/stable.dl",
+    "PR": "lib/aspartix/prefex_gringo.lp",
+    "SST": "lib/aspartix/semi_stable_gringo.lp",
+    "STG": "lib/aspartix/stage_gringo.lp",
+}
 
 Nodes = Dict[str, int]
 Edges = List[Tuple[int, int]]
 
 
+@beartype
 class Graph:
+    """Simple graph representation."""
+
     name: str
     nodes: Nodes
     edges: Edges
@@ -35,41 +54,27 @@ class Graph:
         self.edge_count = len(edges)
 
 
-SEMANTICS = ["GR", "CO", "ST", "SST", "STG", "PR"]
-Semantics = Literal["GR", "CO", "ST", "SST", "STG", "PR"]
-SEMANTICS_FILES: Dict[Semantics, str] = {
-    "GR": "ground.dl",
-    "CO": "comp.dl",
-    "ST": "stable.dl",
-    "PR": "prefex_gringo.lp",
-    "SST": "semi_stable_gringo.lp",
-    "STG": "stage_gringo.lp",
-}
-
-
-def solve_af_problem(
-    node_count: int, prog: str, semantics: Semantics, parallel: int
-) -> torch.Tensor:
+@beartype
+def solve(nodes: int, prog: Program, sem: Semantics, p: int) -> Int[Tensor, "E A"]:
+    """Solves an argumentation problem with `p` processors."""
     ctl = clingo.Control("0")
 
     # Add argumentation framework
     ctl.add("base", [], prog)
 
     # Load semantics solvers
-    semantics_file = SEMANTICS_FILES[semantics]
-    ctl.load(f"solver/{semantics_file}")
-    ctl.load("solver/filter.lp")
+    semantics_file = SEMANTICS_FILES[sem]
+    ctl.load(semantics_file)
+    ctl.load(FILTER_FILE)
 
     # Ground
     ctl.ground([("base", [])])
 
-    # Set parallel
-    ctl.configuration.parallel_mode = str(parallel)
-
     # Solve the program
     extensions = []
+    ctl.configuration.parallel_mode = str(p)
     with ctl.solve(yield_=True) as handle:
-        for m in tqdm(handle, desc=f"Solving {semantics} semantics", unit=" exts"):
+        for m in tqdm(handle, desc=f"Solving {sem} semantics", unit=" exts"):
             m = m.symbols(shown=True)
             ids = []
             for sym in m:
@@ -77,29 +82,31 @@ def solve_af_problem(
                 id = sym_str[3:-1]
                 ids.append(id)
 
-            extension = torch.zeros(node_count, dtype=torch.bool)
+            extension = torch.zeros(nodes, dtype=torch.int)
             extensions.append(extension)
-
             handle.get()
 
     extensions = torch.stack(extensions)
-
     return extensions
 
 
-def read_apx(apx_path: str):
+@beartype
+def read_apx(apx_path: str) -> Tuple[str, int, Program]:
+    """Reads an apx file and returns the name, node count, and program."""
     name = os.path.basename(apx_path)
 
-    # count number of args, and otherwise read into string
+    # Read the apx file
     with open(apx_path, "r") as file:
         lines = file.readlines()
 
+    # Count the number of nodes
     node_count = 0
     for l in lines:
         if not l.startswith("arg"):
             break
         node_count += 1
 
+    # Return the name, node count, and the program
     return name, node_count, "".join(lines)
 
 
@@ -107,14 +114,16 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 6:
-        print("Usage: python aasgd.py <tgf_path> <apx_dir> <out_dir> <semantics> <n_p>")
+        print(
+            "Usage: python single_solve.py <tgf_path> <apx_dir> <out_dir> <semantics> <n_p>"
+        )
         sys.exit(1)
 
     tgf_path = sys.argv[1]
     apx_dir = sys.argv[2]
     out_dir = sys.argv[3]
     semantics = sys.argv[4]
-    parallel = sys.argv[5]
+    parallel = int(sys.argv[5])
 
     if not os.path.exists(tgf_path):
         print(f"File {tgf_path} does not exist.")
@@ -140,7 +149,7 @@ if __name__ == "__main__":
     name, node_count, prog = read_apx(apx_path)
     print(f"{name} ({node_count})")
 
-    exts = solve_af_problem(node_count, prog, semantics, parallel=parallel)
+    exts = solve(node_count, prog, semantics, p=parallel)
 
     out_file = os.path.join(out_dir, f"{name}.{semantics}.pt")
     torch.save(exts, out_file)

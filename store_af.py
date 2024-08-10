@@ -91,6 +91,13 @@ def main(tgf_path: str, out_dir: str):
 
 
 if __name__ == "__main__":
-    for file in os.listdir("AFs"):
-        if file.endswith(".tgf"):
-            main(os.path.join("AFs", file), "apx_dir")
+    import sys
+
+    if len(sys.argv) != 3:
+        print("Usage: python store_af.py <tgf_path> <out_dir>")
+        sys.exit(1)
+
+    tgf_path = sys.argv[1]
+    out_dir = sys.argv[2]
+
+    main(tgf_path, out_dir)
