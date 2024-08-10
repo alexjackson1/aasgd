@@ -1,5 +1,5 @@
 from beartype import beartype
-from beartype.typing import Dict, List, Tuple, Literal, Optional
+from beartype.typing import Dict, Optional
 from jaxtyping import Int
 
 import os
