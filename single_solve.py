@@ -1,26 +1,16 @@
-# 1. Loop through all tgf files
-# 2. Parse the tgf file into apx format
-# 3. Solve the extensions
-# 4. Store as data object
-# 5. Save the data object
-
-
 from jaxtyping import Int
 from beartype import beartype
-from beartype.typing import Dict, List, Literal, Tuple
+from beartype.typing import Dict, List, Tuple
 
 import os
-
 
 import clingo
 import torch
 from torch import Tensor
 from tqdm import tqdm
 
+from af import Semantics, SEMANTICS, APXProgram
 
-SEMANTICS = ["GR", "CO", "ST", "SST", "STG", "PR"]
-Semantics = Literal["GR", "CO", "ST", "SST", "STG", "PR"]
-Program = str
 
 FILTER_FILE = "lib/aspartix/filter.lp"
 SEMANTICS_FILES: Dict[Semantics, str] = {
@@ -55,7 +45,7 @@ class Graph:
 
 
 @beartype
-def solve(nodes: int, prog: Program, sem: Semantics, p: int) -> Int[Tensor, "E A"]:
+def solve(nodes: int, prog: APXProgram, sem: Semantics, p: int) -> Int[Tensor, "E A"]:
     """Solves an argumentation problem with `p` processors."""
     ctl = clingo.Control("0")
 
@@ -91,7 +81,7 @@ def solve(nodes: int, prog: Program, sem: Semantics, p: int) -> Int[Tensor, "E A
 
 
 @beartype
-def read_apx(apx_path: str) -> Tuple[str, int, Program]:
+def read_apx(apx_path: str) -> Tuple[str, int, APXProgram]:
     """Reads an apx file and returns the name, node count, and program."""
     name = os.path.basename(apx_path)
 
