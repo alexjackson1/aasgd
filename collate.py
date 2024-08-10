@@ -42,7 +42,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 3:
-        print("Usage: python store_af.py <tgf_dir> <ext_dir>")
+        print("Usage: python collate.py <tgf_dir> <ext_dir>")
         sys.exit(1)
 
     tgf_dir = sys.argv[1]
@@ -56,20 +56,34 @@ if __name__ == "__main__":
         print(f"Directory {ext_dir} does not exist.")
         sys.exit(1)
 
-    entries = []
+    entries, file_count = [], 0
+    counts, missing_all, missing_any = {}, [], []
+
+    for sem in SEMANTICS:
+        counts[sem] = 0
+
     for tgf_file in os.listdir(tgf_dir):
         if not tgf_file.endswith(".tgf"):
             continue
 
         tgf_path = os.path.join(tgf_dir, tgf_file)
+        file_count += 1
 
         # check existence of corresponding extension files
         ext_paths = {sem: check_ext(tgf_path, ext_dir, sem) for sem in SEMANTICS}
+        present = [sem for sem, path in ext_paths.items() if path is not None]
         missing = [sem for sem, path in ext_paths.items() if path is None]
+
+        if len(missing) > 0:
+            missing_any.append((tgf_file, missing))
 
         if len(missing) == len(SEMANTICS):
             print(f"No extensions found for {tgf_file}, skipping...")
+            missing_all.append(tgf_file)
             continue
+
+        for sem in present:
+            counts[sem] += 1
 
         print(f"Processing {tgf_file}...")
         graph = parse_tgf(tgf_path)
@@ -81,3 +95,15 @@ if __name__ == "__main__":
 
     torch.save(entries, "data.pt")
     print(f"Saved {len(entries)} entries to data.pt.")
+
+    with open("missing_all.txt", "w") as f:
+        f.write("\n".join(missing_all))
+
+    with open("missing_any.txt", "w") as f:
+        for tgf_file, missing in missing_any:
+            f.write(f"{tgf_file}: {', '.join(missing)}\n")
+
+    with open("counts.txt", "w") as f:
+        for sem, count in counts.items():
+            print(f"{sem}: {count} ({count / file_count:0%})")
+            f.write(f"{sem}: {count} ({count / file_count:0%})\n")
